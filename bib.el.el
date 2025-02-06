@@ -25,10 +25,67 @@
 (defgroup bib.el '() "Bib.El Customization.")
 (defvar *bib.el-books* (list))
 (defvar *bib.el-file* "~/.emacs.d/bib.el/*Bib.El*")
+(defvar *bib.el-url-mapping* '(
+  ("Ex." "EXO")
+  ("Lev." "LEV")
+  ("Num." "NUM")
+  ("Deut." "DEU")
+  ("Josh." "JOS")
+  ("Judg." "JDG")
+  ("Ruth" "RUT")
+  ("1 Sam." "1SA")
+  ("2 Sam." "2SA")
+  ("1 Kings" "1KI")
+  ("2 Kings" "2KI")
+  ("1 Chron." "1CH")
+  ("2 Chron." "2CH")
+  ("Ezra" "EZR")
+  ("Neh." "NEH")
+  ("Est." "EST")
+  ("Job" "JOB")
+  ("Ps." "PSA")
+  ("Prov." "PRO")
+  ("Eccles." "ECC")
+  ("Song" "SNG")
+  ("Isa." "ISA")
+  ("Jer." "JER")
+  ("Lam." "LAM")
+  ("Ezek." "EZK")
+  ("Dan." "DAN")
+  ("Hos." "HOS")
+  ("Joel" "JOL")
+  ("Amos" "AMO")
+  ("Obad." "OBA")
+  ("Jonah" "JON")
+  ("Mic." "MIC")
+  ("Nah." "NAM")
+  ("Hab." "HAB")
+  ("Zeph." "ZEP")
+  ("Hag." "HAG")
+  ("Zech." "ZEC")
+  ("Mal." "MAL")
+  ("Matt." "MAT")
+  ("Mark" "MRK")
+  ("Luke" "LUK")
+  ("John" "JHN")
+  ("Acts" "ACT")
+  ("Rom." "ROM")
+  ("1 Cor." "1CO")
+  ("2 Cor." "2CO")
+  ("Gal." "GAL")
+  ("Eph." "EPH")
+  ("Phil." "PHP")
+  ("Col." "COL")
+  ("1 Thess." "1TH")
+  ("2 Thess." "2TH")
+  ("1 Tim." "1TI")
+  ("2 Tim." "2TI")
+  ("Titus" "TIT")
+  ))
 (defvar bib.el-bookmarks '())
 (defvar *bib.el-bookmark-file* "~/.emacs.d/bib.el/ebookmarks")
 (defcustom bib.el-version "t_kjv" "Bible table name." :type 'string :options '("t_kjv") :group 'bib.el)
-(defcustom bib.el-sqlite-path "~/Downloads/bible_databases/bible-sqlite.db" "Path to db." :type 'string :options '("~/Downloads/bible_databases/bible-sqlite.db") :group 'bib.el)
+(defcustom bib.el-sqlite-path "~/.emacs.d/bib.el/bible-sqlite.db" "Path to db." :type 'string :options '("~/.emacs.d/bib.el/bible-sqlite.db") :group 'bib.el)
 (defcustom bib.el-buffer-name "*Bib.El*" "Buffer name." :type 'string :options '("*Bib.El*") :group 'bib.el)
 
 (global-set-key (kbd "C-c e b") 'bib.el-open)
@@ -49,6 +106,7 @@
 	  (isearch-done)
 	  (beginning-of-line)))
     (message "Bib.El buffer is not open...")))
+
 
 (defun bib.el-goto-section ()
   "Go to a section based off input Book, Chapter, Verse."
@@ -75,28 +133,65 @@
   "Save a bookmark for current position for later."
   (interactive)
   (let ((bookmark-description (read-string "Description: ")))
-    (push (list 'position 1 'description bookmark-description) bib.el-bookmarks)
-    )
+    (push (list 'position (point) 'description bookmark-description) bib.el-bookmarks))
+
+  ;; (insert (format "%S" bib.el-bookmarks))((position 17479 description "Noah...") (position 45 description "In the beginning"))
   ;; get the line (book chapter verse) from the beginning of cursor line
   ;; get a description
   ;; save to bookmark file
   )
 
-(defun bib.el-jump-to-bookmark () ;; TODO: Bookmark a position, and be able to select it and jump to spot
+
+(defun bib.el-jump-to-bookmark ()
   "Jump to a bookmark position."
   (interactive)
-  (message (cl-reduce #'(lambda (acc v) (setq acc (concat acc ":" (format "%s" (plist-get v 'description))))) bib.el-bookmarks))
-  (plist-get (nth 0 bib.el-bookmarks) 'description)
-  ;; read in bookmark file
-  ;; allow user to select from options
-  ;; isearch to section
-  )
+  (let ((selected-bookmark "") (descriptions (mapcar #'(lambda (a) (plist-get a 'description)) bib.el-bookmarks)))
+    (setq selected-bookmark (completing-read "Bookmark:" descriptions))
+    (progn
+      (switch-to-buffer bib.el-buffer-name)
+      (with-current-buffer bib.el-buffer-name
+	;; (org-overview)
+	(goto-char 0)
+	(goto-char (plist-get
+		    (nth (cl-position selected-bookmark descriptions :test 'equal) bib.el-bookmarks)
+		    'position))))))
 
 ;; MAYBE a wrapper round dictionary?
-
-;; TODO: custom integration to stream autobook from bible.com
-;; TODO: add key_genre_english join, give each book its genre
 ;; TODO: add a function to get book, chapter and get cross reference links
+
+(defun bib.el-play-audio ()
+  "Pull up the selected book/chapter to read from bible.com."
+  (interactive)
+  (let ((raw-string "")
+	(parsed-string "")
+	(book-chapter '())
+	(website-book "")
+      (audio-url ""))
+    (setq book-chapter (bib.el-get-book-chapter))
+    (setq website-book (nth 1 (nth 0 (cl-remove-if-not #'(lambda (x) (string-equal (nth 0 x) (nth 0 book-chapter))) *bib.el-url-mapping*))))
+    (setq raw-string (shell-command-to-string (format "curl https://www.bible.com/audio-bible/1/%s.%s.KJV | fold -s -w 200 | grep '\"contentUrl\"'"
+						      website-book (nth 1 book-chapter))))
+  (if (equal raw-string "")
+      (message "Curl command result empty..."))
+  (setq parsed-string (split-string raw-string "\"contentUrl\":\""))
+  (dolist (str parsed-string)
+    (progn
+      (if (cl-search "https://audio-bible-cdn.youversionapi.com" str)
+	  (setq audio-url (car (split-string str "\",\""))))))
+  (if (not (equal audio-url ""))
+      (async-shell-command (format "mpv %s" audio-url))
+    (message "Audio Url did not parse correctly.."))))
+
+(defun bib.el-get-book-chapter ()
+  "Return list (BOOK? CHAPTER?) looking at current pointer line."
+  (let (line res)
+    (setq line (split-string (thing-at-point 'line t) ":"))
+    (if (> (length line) 1)
+	(progn
+	  (setq res (list (nth 0 line) (nth 1 line)))
+	  (catch 'my-early-return
+    (when t
+      (throw 'my-early-return res)))))))
 
 (defun bib.el-modes ()
   "Enable Bib.El modes on bible buffer."
@@ -118,7 +213,7 @@
   (let (db)
     (setq db (sqlite-open bib.el-sqlite-path))
     (setq *bib.el-books*
-	  (sqlite-execute db (format "select bi.\"order\", bi.title_short, t.c, t.b, t.v, t.t, bi.abbreviation from book_info as bi join %s as t on t.b = bi.\"order\" order by \"order\";" bib.el-version)))
+	  (sqlite-execute db (format "select bi.\"order\", bi.title_short, t.c, t.b, t.v, t.t, bi.abbreviation, bi.category from book_info as bi join %s as t on t.b = bi.\"order\" order by \"order\";" bib.el-version)))
     (if (file-exists-p *bib.el-file*)
 	(progn
 	  (find-file *bib.el-file*)
@@ -136,7 +231,7 @@
   "Bib.El helper function for inserting into bib.el buffer from scratch."
   (let (cur-book)
     (setq cur-book 0)
-    (insert "#+TITLE: Bib.El\n")
+    (insert "#+TITLE: Bib.el\n")
     (dolist (c *bib.el-books*)
 	(if (not (= cur-book (nth 0 c)))
 	    (cond
@@ -145,12 +240,10 @@
 				(insert (format "** %s\n" (nth 1 c)))))
 	     ((= (nth 0 c) 40) (progn
 				 (insert "* New Testament \n")
-				 (insert (format "** %s\n" (nth 1 c)))))
-	     
-	     (t (insert (format "** %s\n" (nth 1 c))))))
+				 (insert (format "** %s \n" (nth 1 c)))))
+	     (t (insert (format "** %s :%s:\n" (nth 1 c) (nth 7 c))))))
 	(insert (format "%s:%s:%s %s\n" (nth 6 c) (nth 2 c) (nth 4 c) (nth 5 c)))
 	(setq cur-book (nth 0 c)))))
-
 
 ;; (defun bib.el-get-random-verse()
 ;;   "Get a random verse message."
@@ -159,7 +252,6 @@
 ;;   ((random (count-lines (point-min) (point-max))))
 ;;   (count-lines (point-min) (point-max))
 ;;   )
-
 
 (provide 'bib.el)
 ;;; bib.el.el ends here
