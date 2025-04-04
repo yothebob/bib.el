@@ -139,17 +139,36 @@
   (bib.el--isearch-to-position goto-result)))
 
 
-(defun bib.el-bookmark-position () ;; TODO: Bookmark a position, and be able to select it and jump to spot
+(defun bib.el-save-bookmarks()
+  "Save BIB.EL-BOOKMARKS in *BIB.EL-BOOKMARK-FILE*."
+  (with-temp-buffer
+    (if (file-exists-p *bib.el-bookmark-file*)
+	(insert-file-contents *bib.el-bookmark-file*))
+    (dolist (bk bib.el-bookmarks)
+      (insert (format "%s:::%s\n" (plist-get bk 'position) (plist-get bk 'description))))
+    (write-region (point-min) (point-max) *bib.el-bookmark-file*)))
+
+
+
+(defun bib.el-read-in-bookmarks(&optional &key override)
+  "Populate BIB.EL-BOOKMARKS from *BIB.EL-BOOKMARK-FILE*, if OVERRIDE clear out BIB.EL-BOOKMARKS first."
+  (if override (setq bib.el-bookmarks '()))
+  (with-temp-buffer
+    (if (file-exists-p *bib.el-bookmark-file*)
+	(insert-file-contents *bib.el-bookmark-file*))
+    (while (not (eobp))
+      (let (des pnt raw)
+	(setq raw (string-split (buffer-substring-no-properties (point) (progn (forward-line 1) (point))) ":::"))
+	(setq pnt (or (nth 0 raw) 0))
+	(setq des (or (string-replace "\n" "" (nth 1 raw)) ""))
+	(push (list 'position pnt 'description des) bib.el-bookmarks)))))
+
+(defun bib.el-bookmark-position ()
   "Save a bookmark for current position for later."
   (interactive)
   (let ((bookmark-description (read-string "Description: ")))
     (push (list 'position (point) 'description bookmark-description) bib.el-bookmarks))
-
-  ;; (insert (format "%S" bib.el-bookmarks))((position 17479 description "Noah...") (position 45 description "In the beginning"))
-  ;; get the line (book chapter verse) from the beginning of cursor line
-  ;; get a description
-  ;; save to bookmark file
-  )
+  (bib.el-save-bookmarks))
 
 
 (defun bib.el-jump-to-bookmark ()
@@ -215,6 +234,7 @@
 (defun bib.el-open ()
   "Open or create BIB.EL-BUFFER-NAME buffer."
   (interactive)
+  (bib.el-read-in-bookmarks :override t)
   (if (get-buffer bib.el-buffer-name)
       (progn
 	(switch-to-buffer bib.el-buffer-name)
