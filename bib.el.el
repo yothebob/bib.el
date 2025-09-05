@@ -181,9 +181,9 @@
       (with-current-buffer bib.el-buffer-name
 	;; (org-overview)
 	(goto-char 0)
-	(goto-char (plist-get
+	(goto-char (string-to-number (plist-get
 		    (nth (cl-position selected-bookmark descriptions :test 'equal) bib.el-bookmarks)
-		    'position))))))
+		    'position)))))))
 
 ;; MAYBE a wrapper round dictionary?
 ;; TODO: add a function to get book, chapter and get cross reference links
