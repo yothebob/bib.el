@@ -26,6 +26,7 @@
 (defvar *bib.el-books* (list))
 (defvar *bib.el-file* "~/.emacs.d/bib.el/*Bib.El*")
 (defvar *bib.el-url-mapping* '(
+  ("Gen." "GEN")
   ("Ex." "EXO")
   ("Lev." "LEV")
   ("Num." "NUM")
@@ -90,8 +91,8 @@
   ("2 John" "2JN")
   ("3 John" "3JN")
   ("Jude" "JUD")
-  ("Rev." "REV")
-  ))
+  ("Rev." "REV")))
+
 (defvar bib.el-bookmarks '())
 (defvar *bib.el-bookmark-file* "~/.emacs.d/bib.el/ebookmarks")
 (defcustom bib.el-version "t_kjv" "Bible table name." :type 'string :options '("t_kjv") :group 'bib.el)
@@ -112,7 +113,7 @@
 	(with-current-buffer bib.el-buffer-name
 	  (goto-char 0)
 	  (isearch-mode t)
-	  (isearch-yank-string (reduce #'(lambda (acc v) (setq acc (concat acc ":" (format "%s" v)))) book-ch-v-list))
+	  (isearch-yank-string (cl-reduce #'(lambda (acc v) (setq acc (concat acc ":" (format "%s" v)))) book-ch-v-list))
 	  (isearch-done)
 	  (beginning-of-line)))
     (message "Bib.El buffer is not open...")))
